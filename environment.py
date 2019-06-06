@@ -1,17 +1,26 @@
 
+from historical import Shock
+from datetime import datetime
+
 class Environment:
-    def __init__(self, snapshot, date):
+    def __init__(self, snapshot, date: datetime):
         self.snapshot = snapshot
         self.date = date
         self.calibrate()
-    
-    def calibrate():
+
+        self.prices = None
+        self.divs = None  # current div yield estimates/projections (NOT historical data, but can be calibrated from it)
+        self.fx = None
+        self.surfaces = None  # a dict or df of vol surfaces
+        self.curves = None  # a dict or df of forward int rate curves
+
+    def calibrate(self):
         self.fx = []
         self.fx.append(FX('USD', 1.0))
         # define self.prices, self.curves, self.surfaces, self.fx
         pass
     
-    def simulate(shock):
+    def simulate(self, shock: Shock):
         pass
 
 
@@ -32,7 +41,7 @@ class VolSurface:
         self.ul = ul
         self.surf = self.surf
     
-    def get_iv(self, T, moneyness):
+    def get_iv(self, ttm, moneyness):
         # interp vol surface
         pass
 
@@ -40,7 +49,7 @@ class VolSurface:
 class FX:
     def __init__(self, ccy, rate):
         self.ccy = ccy
-        self.rate
+        self.rate = rate
 
 
 class Price:
