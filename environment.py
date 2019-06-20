@@ -2,6 +2,7 @@
 from historical import Shock
 from datetime import datetime
 
+
 class Environment:
     def __init__(self, snapshot, date: datetime):
         self.snapshot = snapshot
