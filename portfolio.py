@@ -15,7 +15,7 @@ class Portfolio:
         self.pf_dollars = self.pf_units
         for (instr, num_units) in self.pf_units.items():
             instr_unit_price = instr.value(env) # dollar market value (CAD) of one unit of this instrument
-            instr_pf_dollars = instr_unit_price * units # dollar value (CAD) of our portfolio invested in this instrument
+            instr_pf_dollars = instr_unit_price * num_units # dollar value (CAD) of our portfolio invested in this instrument
             self.pf_dollars[instr] = instr_pf_dollars
 
         self.pf_total_value = sum(self.pf_dollars.values())
