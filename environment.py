@@ -4,46 +4,15 @@ from datetime import datetime
 
 
 class Environment:
-    def __init__(self, snapshot, date: datetime):
-        self.snapshot = snapshot
+    def __init__(self, date, prices, fx):
+        # :param date: datetime object
+        # :param prices: list of Price objects
+        # :param fx: and FX object
         self.date = date
-        self.calibrate()
-
-        self.prices = None
-        self.divs = None  # current div yield estimates/projections (NOT historical data, but can be calibrated from it)
-        self.fx = None
-        self.surfaces = None  # a dict or df of vol surfaces
-        self.curves = None  # a dict or df of forward int rate curves
-
-    def calibrate(self):
-        self.fx = []
-        self.fx.append(FX('USD', 1.0))
-        # define self.prices, self.curves, self.surfaces, self.fx
-        pass
+        self.prices = prices
+        self.fx = fx
     
     def simulate(self, shock: Shock):
-        pass
-
-
-class YieldCurve:
-    def __init__(self, ccy, ul, crv):
-        self.ccy = ccy
-        self.ul = ul
-        self.crv = crv
-    
-    def get_rate(self, T):
-        # interp yield curve
-        pass
-
-
-class VolSurface:
-    def __init__(self, ccy, ul, surf):
-        self.ccy = ccy
-        self.ul = ul
-        self.surf = self.surf
-    
-    def get_iv(self, ttm, moneyness):
-        # interp vol surface
         pass
 
 
@@ -54,7 +23,9 @@ class FX:
 
 
 class Price:
-    def __init__(self, ccy, ul, price):
-        self.ccy = ccy
-        self.ul = ul
+    def __init__(self, etf, price):
+        # :param etf: an Equity object
+        # :param price: float
+        self.etf = etf
+        self.ccy = self.etf.ccy
         self.price = price

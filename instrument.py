@@ -16,7 +16,6 @@ class Instrument:
 
 class Equity(Instrument):
     def __init__(self, name, ccy):
-        super().__init__()
         self.name = name
         self.ccy = ccy
         self.type = 'Eq'
