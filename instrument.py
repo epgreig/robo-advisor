@@ -8,15 +8,14 @@ from datetime import timedelta
 
 class Instrument:
     def __init__(self):
-        pass
+        raise NotImplementedError()
 
     def value(self, env: Environment):
-        pass
+        raise NotImplementedError()
 
 
 class Equity(Instrument):
     def __init__(self, name, ccy):
-        super().__init__()
         self.name = name
         self.ccy = ccy
         self.type = 'Eq'
@@ -128,5 +127,3 @@ class Option(Instrument):
                 return guess
 
         return guess
-
-

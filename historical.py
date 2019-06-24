@@ -1,8 +1,7 @@
 
 class HistoricalData:
     def __init__(self, data):
-        # generate list of environments self.data
-        pass
+        self.data = data
 
 
 class Distribution:

@@ -3,23 +3,24 @@ from instrument import Instrument
 from environment import Environment
 import numpy as np
 
+
 class Portfolio:
-    def __init__(self, pf, val):
-        # :param pf: a dictionary of Instrument -> weight (float)
-        # :param val: float, total dollar value (in CAD) of portfolio
-        # weights are by dollar value (in CAD)
-        self.pf = pf
-        self.val = val
-
-        # check that sum of weights is approximately 1
-        assert abs(sum(list(pf.values())) - 1.) < 0.01
+    def __init__(self, pf):
+        # :param pf: a dictionary of Instrument -> # units
+        self.pf_units = pf
+        self.pf_dollars = {}
+        self.pf_total_value = 0.
     
-    def calc_units(self, env:Environment):
-        units = list()
-        for (k,v) in self.pf.items():
-            instr_unit_value = k.value(env) # dollar market value (CAD) of one unit of this instrument
-            instr_pf_value = v * self.val # dollar value (CAD) of our portfolio invested in this instrument
-            instr_num_units = instr_pf_value / instr_unit_value 
-            units.append((k,instr_num_units))
+    def calc_value(self, env:Environment):
+        # :param env: an Environment containing market prices
+        # calculates a dictionary of Instrument -> dollar value in portfolio
+        # returns the total dollar value of the portfolio
+        self.pf_dollars = self.pf_units
+        for (instr, num_units) in self.pf_units.items():
+            instr_unit_price = instr.value(env)  # (CAD) value of one unit of this instrument
+            instr_pf_dollars = instr_unit_price * num_units  # (CAD) value of our portfolio invested in this instrument
+            self.pf_dollars[instr] = instr_pf_dollars
 
-        self.units = units
+        self.pf_total_value = sum(self.pf_dollars.values())
+        
+        return self.pf_total_value
