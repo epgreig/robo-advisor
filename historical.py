@@ -63,6 +63,7 @@ class ShockMap:
         self.rates = hist.envdata[hist.envdata.index <= date]['MACRO'][rate_names]/100/12
         self.date = date
         self.coefs = pd.DataFrame()
+        self.calibrated = False
 
     def calibrate(self):
         param_dict = {}
@@ -75,7 +76,10 @@ class ShockMap:
         self.coefs = pd.DataFrame(param_dict, index=self.features_df.columns.droplevel())
 
     def map_factors(self, factor_shock: pd.Series):
-        self.calibrate()
+        if not self.calibrated:
+            self.calibrate()
+            self.calibrated = True
+
         asset_shocks = {}
 
         feat_series = factor_shock.append(self.rates.loc[self.date])

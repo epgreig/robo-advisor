@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from copy import copy, deepcopy
 from helpers import Surface, Curve
+from pandas.tseries.offsets import MonthEnd
 
 
 class Environment:
@@ -33,6 +34,8 @@ class Environment:
         for asset, surf in new_env.surfaces.items():
             new_s = Surface(surf.matrix * (vol_changes + 1))
             new_env.surfaces[asset] = new_s
+
+        new_env.date = new_env.date + MonthEnd(1)
 
         return new_env
 
