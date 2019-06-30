@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from environment import Curve, Surface
+from helpers import Curve, Surface
 
 class HistoricalData:
     def __init__(self, envdata: pd.DataFrame, features: pd.DataFrame, targets: pd.DataFrame):
@@ -12,23 +12,23 @@ class HistoricalData:
         self.features.index = pd.to_datetime(self.features.index)
         self.targets.index = pd.to_datetime(self.targets.index)
 
-
     def get_env_args(self, date):
+        # etf prices
         prices = self.envdata.loc[date][['EQ', 'FI', 'EM', 'RE']]
         prices.index = prices.index.droplevel()
         prices = prices.to_dict()
-
+        # fx
         fx = {}
         fx['CAD'] = self.envdata.loc[date]['MACRO']['EXCH']
         fx['USD'] = 1
-
+        # divs
         divs = {}
         divs['SPY US Equity'] = 0.02
+        # surface
         surfaces = {}
-
         surfaces['SPY US Equity'] = Surface(np.array([self.envdata.loc[date][['IV1']].values,
                                                       self.envdata.loc[date][['IV2']].values])/100)
-
+        # ir curve
         curves = {}
         rate = self.envdata.loc[date]['MACRO']['FEDFUNDS']/100
         curves['USD'] = Curve(np.array([rate, rate]))
