@@ -4,21 +4,22 @@ import numpy as np
 from scipy.stats import norm
 from scipy.optimize import minimize
 from datetime import timedelta
+from pandas._libs.tslibs.timestamps import Timestamp, Timedelta
 
 
 class Instrument:
     def __init__(self):
-        raise NotImplementedError()
+        pass
 
     def value(self, env: Environment):
-        raise NotImplementedError()
+        pass
 
 
 class Equity(Instrument):
     def __init__(self, name, ccy):
         self.name = name
         self.ccy = ccy
-        self.type = 'Eq'
+        self.type = 'EQ'
 
     def value(self, env: Environment):
         return env.prices[self.name]  # price quoted in native ccy
@@ -76,12 +77,21 @@ class Option(Instrument):
         if self.T < env.date:
             raise ValueError("Environment date is after option maturity")
 
+        ttm = (self.T - env.date).days / 365
+
         S = env.prices[self.ul]
         moneyness = S / self.K
-        vol = env.surfaces[self.ul].get_iv(self.T, moneyness)
-        int_rate = env.curves[self.ccy].get_rate(self.T)
+
+        if abs(ttm-1/12) < 1/36:
+            tenor = 1
+        elif abs(ttm-2/12) < 1/36:
+            tenor = 2
+        else:
+            raise ValueError("Time to maturity is not 1 or 2 months")
+        vol = env.surfaces[self.ul].get_iv(tenor, moneyness)
+        int_rate = env.curves[self.ccy].get_rate(tenor)
         div_yield = env.divs[self.ul]
-        ttm = (self.T - env.date).days/365
+
         return Option.bs_price(S, self.K, ttm, vol, int_rate, div_yield, self.is_call)
 
     @staticmethod
