@@ -38,14 +38,21 @@ class HistoricalData:
 
 
 class Distribution:
-    def __init__(self, hist: HistoricalData, date: Timestamp):
+    def __init__(self, hist: HistoricalData, date: Timestamp, method='normal'):
         sdf = hist.features['Shocks']
         self.shock_hist = sdf[sdf.index <= date]
+        self.method = method
 
     def generate_shock(self):
-        rand_int = np.random.randint(len(self.shock_hist))
-        factor_shock = self.shock_hist.iloc[rand_int, :]
-        return factor_shock
+        if self.method:
+            rand_int = np.random.randint(len(self.shock_hist))
+            factor_shock = self.shock_hist.iloc[rand_int, :]
+            return factor_shock
+        elif self.method:
+            mean = self.shock_hist.mean()
+            cov = self.shock_hist.cov()
+            factor_shock = np.random.multivariate_normal(mean, cov)
+            return pd.Series(factor_shock, index=self.shock_hist.columns)
 
 
 class ShockMap:
