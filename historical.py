@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 from helpers import Curve, Surface
+from pandas._libs.tslibs.timestamps import Timestamp
+from sklearn.linear_model import LinearRegression, Lasso, Ridge, LassoCV, RidgeCV
 
 class HistoricalData:
     def __init__(self, envdata: pd.DataFrame, features: pd.DataFrame, targets: pd.DataFrame):
@@ -36,14 +38,50 @@ class HistoricalData:
 
 
 class Distribution:
-    def __init__(self, hist: HistoricalData):
-        self.shock_hist = hist.features['Shocks']
-    
-    def generate_shock(self, n=1):
-        # generate n shocks from distribution derived from historical envs
-        pass
+    def __init__(self, hist: HistoricalData, date: Timestamp):
+        sdf = hist.features['Shocks']
+        self.shock_hist = sdf[sdf.index <= date]
 
+    def generate_shock(self):
+        rand_int = np.random.randint(len(self.shock_hist))
+        factor_shock = self.shock_hist.iloc[rand_int, :]
+        return factor_shock
+
+
+class ShockMap:
+    def __init__(self, hist: HistoricalData, date: Timestamp):
+        self.features_df = hist.features[hist.features.index <= date]
+        self.targets_df = hist.targets[hist.targets.index <= date]
+        rate_names = self.features_df['Rates'].columns.values
+        self.rates = hist.envdata[hist.envdata.index <= date]['MACRO'][rate_names]/100/12
+        self.date = date
+        self.coefs = pd.DataFrame()
+
+    def calibrate(self):
+        param_dict = {}
+        for col in self.targets_df.columns:
+            y = self.targets_df[col].values
+            X = self.features_df.values
+            reg = LassoCV(fit_intercept=False, cv=len(y)//5, n_alphas=10)
+            reg.fit(X,y)
+            param_dict[col] = reg.coef_
+        self.coefs = pd.DataFrame(param_dict, index=self.features_df.columns.droplevel())
+
+    def map_factors(self, factor_shock: pd.Series):
+        self.calibrate()
+        asset_shocks = {}
+
+        feat_series = factor_shock.append(self.rates.loc[self.date])
+        for asset in self.coefs.columns:
+            asset_shocks[asset] = np.dot(self.coefs[asset].values,
+                                         feat_series[self.coefs.index].values)
+
+        return pd.Series(asset_shocks)
 
 class Shock:
-    def __init__(self, epsilon):
-        self.epsilon = epsilon
+
+    def __init__(self, factor_shock, ):
+        self.factor_shock = factor_shock
+
+
+

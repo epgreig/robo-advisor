@@ -1,9 +1,14 @@
 
 from historical import Shock
-from datetime import datetime
+from pandas._libs.tslibs.timestamps import Timestamp, Timedelta
+import pandas as pd
+import numpy as np
+from copy import copy, deepcopy
+from helpers import Surface, Curve
+
 
 class Environment:
-    def __init__(self, date: datetime, prices: dict, fx: dict, divs: dict, surfaces: dict, curves: dict):
+    def __init__(self, date: Timestamp, prices: dict, fx: dict, divs: dict, surfaces: dict, curves: dict):
         # :param date: datetime object
         # :param prices: list of Price objects
         # :param fx: and FX object
@@ -14,16 +19,22 @@ class Environment:
         self.curves = curves
         self.surfaces = surfaces
     
-    def simulate(self, shock: Shock):
-        # has to grab current prices and rates
-        # has to calibrate regression to find shocked changes to all other ETFs
-        # has to use those changes to get NEW simulated prices for ETFs (and imp vols)
-        # has to return a simulated set of ETF prices and impvols
-        pass
+    def simulate(self, shock: pd.Series):
+        new_env = deepcopy(self)
+        for asset, price in new_env.prices.items():
+            new_env.prices[asset] = price * (shock[asset] + 1)
 
+        vol_changes = np.array([shock[['IV1M80', 'IV1M90', 'IV1M95', 'IV1M975', 'IV1M100',
+                                      'IV1M1025', 'IV1M105', 'IV1M110',	'IV1M120']].values,
+                               shock[['IV2M80', 'IV2M90', 'IV2M95', 'IV2M975', 'IV2M100', 'IV2M1025',
+                                      'IV2M105', 'IV2M110', 'IV2M120']].values
+                                ])
 
+        for asset, surf in new_env.surfaces.items():
+            new_s = Surface(surf.matrix * (vol_changes + 1))
+            new_env.surfaces[asset] = new_s
 
-
+        return new_env
 
 class FX:
     def __init__(self, ccy, rate):
