@@ -39,6 +39,7 @@ class Environment:
 
         return new_env
 
+
 class FX:
     def __init__(self, ccy, rate):
         self.ccy = ccy

@@ -34,7 +34,7 @@ class HistoricalData:
         curves = {}
         rate = self.envdata.loc[date]['MACRO']['FEDFUNDS']/100
         curves['USD'] = Curve(np.array([rate, rate]))
-        return prices, fx, divs, surfaces, curves
+        return date, prices, fx, divs, surfaces, curves
 
 
 class Distribution:
@@ -42,16 +42,20 @@ class Distribution:
         sdf = hist.features['Shocks']
         self.shock_hist = sdf[sdf.index <= date]
         self.method = method
+        mean = self.shock_hist.mean()
+        cov = self.shock_hist.cov()
+        self.mean = mean
+        mean[['IVLEFT Change', 'IVMID Change', 'IVRIGHT Change']] = 0
+        self.cov = cov
 
     def generate_shock(self):
-        if self.method:
+        if self.method == 'empirical':
             rand_int = np.random.randint(len(self.shock_hist))
             factor_shock = self.shock_hist.iloc[rand_int, :]
             return factor_shock
-        elif self.method:
-            mean = self.shock_hist.mean()
-            cov = self.shock_hist.cov()
-            factor_shock = np.random.multivariate_normal(mean, cov)
+
+        elif self.method == 'normal':
+            factor_shock = np.random.multivariate_normal(self.mean, self.cov)
             return pd.Series(factor_shock, index=self.shock_hist.columns)
 
 
@@ -70,7 +74,7 @@ class ShockMap:
         for col in self.targets_df.columns:
             y = self.targets_df[col].values
             X = self.features_df.values
-            reg = LassoCV(fit_intercept=False, cv=len(y)//5, n_alphas=10)
+            reg = LassoCV(fit_intercept=False, cv=len(y)//2, n_alphas=10)
             reg.fit(X,y)
             param_dict[col] = reg.coef_
         self.coefs = pd.DataFrame(param_dict, index=self.features_df.columns.droplevel())

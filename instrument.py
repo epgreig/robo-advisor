@@ -15,6 +15,14 @@ class Instrument:
         pass
 
 
+class Cash(Instrument):
+    def __init__(self, ccy):
+        self.ccy = ccy
+
+    def value(self, *args, **kwargs):
+        return 1
+
+
 class Equity(Instrument):
     def __init__(self, name, ccy):
         self.name = name
