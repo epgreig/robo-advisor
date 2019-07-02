@@ -63,7 +63,14 @@ class Distribution:
             t_distr = t_fit(self.shock_hist.values, dof=4)
             factor_shock = t_generate(t_distr[0], t_distr[1], dof=4, n=count)
             return pd.DataFrame(factor_shock, columns=self.shock_hist.columns)
-
+        
+    def generate_cond_shock(self, f_name: str, count=1, lower_limit=1, upper_limit=1):
+        #conditional expected scenario given macro economic factor
+        factor_sim_shocks = self.generate_shock(count)
+        cond_bin_upper = factor_sim_shocks[f_name] < upper_limit 
+        cond_bin_lower = factor_sim_shocks[f_name] > lower_limit
+        cond_shocks = factor_sim_shocks[cond_bin_upper & cond_bin_lower]
+        return cond_shocks.mean()
 
 class ShockMap:
     def __init__(self, hist: HistoricalData, date: Timestamp):
