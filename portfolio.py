@@ -1,8 +1,9 @@
 
-from instrument import Instrument
+from instrument import Instrument, Option
 from environment import Environment
 import numpy as np
 from copy import copy, deepcopy
+from pandas.tseries.offsets import MonthEnd
 
 class Portfolio:
     def __init__(self, pf):
@@ -10,7 +11,41 @@ class Portfolio:
         self.pf_units = pf
         self.pf_dollars = {}
         self.pf_total_value = None
-    
+
+    def get_cash(self, ccy):
+        for asset in self.pf_units.keys():
+            if (asset.type == 'Cash') and (asset.ccy == ccy):
+                return asset
+        return None
+
+    def get_options(self):
+        opt_list = []
+        for asset in self.pf_units.keys():
+            if asset.type == 'Option':
+                opt_list.append(asset)
+        return opt_list
+
+    def get_asset(self, name):
+        for asset in self.pf_units.keys():
+            if asset.name == name:
+                return asset
+        return None
+
+    def sell_options(self, env: Environment):
+        opt_list = self.get_options()
+        for opt in opt_list:
+            opt_val = opt.value(env)
+            self.pf_units[self.get_cash('USD')] += self.pf_units[opt] * opt_val
+            del self.pf_units[opt]
+
+    def buy_options(self, env: Environment, option_spec_list, pos_array):
+
+        for i, spec in enumerate(option_spec_list):
+            opt = Option(T=env.date + MonthEnd(2), **spec)
+            self.pf_units[opt] = pos_array[i]
+            opt_val = opt.value(env)
+            self.pf_units[self.get_cash('USD')] -= self.pf_units[opt] * opt_val
+
     def calc_value(self, env: Environment):
         # :param env: an Environment containing market prices
         # calculates a dictionary of Instrument -> dollar value in portfolio

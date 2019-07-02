@@ -18,6 +18,7 @@ class Instrument:
 class Cash(Instrument):
     def __init__(self, ccy):
         self.ccy = ccy
+        self.type = 'Cash'
 
     def value(self, *args, **kwargs):
         return 1
@@ -79,6 +80,7 @@ class Option(Instrument):
         self.ul = ul
         self.K = K
         self.T = T
+        self.type = 'Option'
 
     def value(self, env: Environment):
 
