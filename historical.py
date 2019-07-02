@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from helpers import Curve, Surface
+from student_t import t_fit, t_generate
 from pandas._libs.tslibs.timestamps import Timestamp
 from sklearn.linear_model import LinearRegression, Lasso, Ridge, LassoCV, RidgeCV
 
@@ -48,15 +49,20 @@ class Distribution:
         mean[['IVLEFT Change', 'IVMID Change', 'IVRIGHT Change']] = 0
         self.cov = cov
 
-    def generate_shock(self):
+    def generate_shock(self, count=1):
         if self.method == 'empirical':
-            rand_int = np.random.randint(len(self.shock_hist))
-            factor_shock = self.shock_hist.iloc[rand_int, :]
+            rand_idx = np.random.randint(len(self.shock_hist), size=count)
+            factor_shock = self.shock_hist.iloc[rand_idx, :]
             return factor_shock
 
         elif self.method == 'normal':
-            factor_shock = np.random.multivariate_normal(self.mean, self.cov)
-            return pd.Series(factor_shock, index=self.shock_hist.columns)
+            factor_shock = np.random.multivariate_normal(self.mean, self.cov, size=count)
+            return pd.DataFrame(factor_shock, columns=self.shock_hist.columns)
+        
+        elif self.method == 'student':
+            t_distr = t_fit(self.shock_hist.values, dof=4)
+            factor_shock = t_generate(t_distr[0], t_distr[1], dof=4, n=count)
+            return pd.DataFrame(factor_shock, columns=self.shock_hist.columns)
 
 
 class ShockMap:
@@ -97,6 +103,3 @@ class Shock:
 
     def __init__(self, factor_shock, ):
         self.factor_shock = factor_shock
-
-
-
