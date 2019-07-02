@@ -9,7 +9,9 @@ from pandas._libs.tslibs.timestamps import Timestamp, Timedelta
 
 class Instrument:
     def __init__(self):
-        pass
+        self.ccy = None
+        self.type = None
+        self.name = None
 
     def value(self, env: Environment):
         pass
@@ -17,6 +19,7 @@ class Instrument:
 
 class Cash(Instrument):
     def __init__(self, ccy):
+        super().__init__()
         self.ccy = ccy
         self.type = 'Cash'
 
@@ -26,6 +29,7 @@ class Cash(Instrument):
 
 class Equity(Instrument):
     def __init__(self, name, ccy):
+        super().__init__()
         self.name = name
         self.ccy = ccy
         self.type = 'EQ'
@@ -96,6 +100,11 @@ class Option(Instrument):
             tenor = 1
         elif abs(ttm-2/12) < 1/36:
             tenor = 2
+        elif abs(ttm) < 1/36:
+            if self.is_call:
+                return max(S - self.K, 0)
+            else:
+                return max(self.K - S, 0)
         else:
             raise ValueError("Time to maturity is not 1 or 2 months")
         vol = env.surfaces[self.ul].get_iv(tenor, moneyness)
@@ -106,6 +115,7 @@ class Option(Instrument):
 
     @staticmethod
     def bs_price(S, K, ttm, vol, int_rate, div_yield, is_call):
+
         F = S * np.exp((int_rate - div_yield) * ttm)
         d1 = (np.log(S/K) + (int_rate - div_yield + 0.5 * vol ** 2) * ttm) / (vol * np.sqrt(ttm))
         d2 = d1 - vol * np.sqrt(ttm)

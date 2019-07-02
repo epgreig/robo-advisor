@@ -38,13 +38,28 @@ class Portfolio:
             self.pf_units[self.get_cash('USD')] += self.pf_units[opt] * opt_val
             del self.pf_units[opt]
 
-    def buy_options(self, env: Environment, option_spec_list, pos_array):
+    def buy_options(self, env: Environment, option_spec_list, pos_array, ttm=2):
 
         for i, spec in enumerate(option_spec_list):
-            opt = Option(T=env.date + MonthEnd(2), **spec)
+            opt = Option(T=env.date + MonthEnd(ttm), **spec)
             self.pf_units[opt] = pos_array[i]
             opt_val = opt.value(env)
             self.pf_units[self.get_cash('USD')] -= self.pf_units[opt] * opt_val
+
+    def rebalance(self, env: Environment, pos_dict: dict):
+        for asset in self.pf_units.keys():
+            if asset.type == 'EQ':
+                pos_change = pos_dict[asset.name] - self.pf_units[asset]
+                gain = pos_change * asset.value(env)
+                self.pf_units[self.get_cash('USD')] += gain
+                self.pf_units[asset] = pos_dict[asset.name]
+
+    @staticmethod
+    def weights_to_pos(w_dict: dict, env: Environment, total_dollar_value):
+        pos_dict = {}
+        for key, val in w_dict.items():
+            pos_dict[key] = total_dollar_value*val/env.prices[key]
+        return pos_dict
 
     def calc_value(self, env: Environment):
         # :param env: an Environment containing market prices
