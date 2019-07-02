@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from helpers import Curve, Surface
+from student_t import t_fit, t_generate
 from pandas._libs.tslibs.timestamps import Timestamp
 from sklearn.linear_model import LinearRegression, Lasso, Ridge, LassoCV, RidgeCV
 
@@ -56,6 +57,11 @@ class Distribution:
 
         elif self.method == 'normal':
             factor_shock = np.random.multivariate_normal(self.mean, self.cov)
+            return pd.Series(factor_shock, index=self.shock_hist.columns)
+        
+        elif self.method == 'student':
+            t_distr = t_fit(self.shock_hist.values, dof=4)
+            factor_shock = t_generate(t_distr[0], t_distr[1], dof=4)[0]
             return pd.Series(factor_shock, index=self.shock_hist.columns)
 
 

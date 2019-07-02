@@ -2,7 +2,7 @@
 import numpy as np
 from scipy import special
 
-def t_fit(X, dof=4, iter=200, tol=1e-6):
+def t_fit(X, dof=4, iter=200, tol=1e-7):
     '''t
     Estimates the mean and covariance of the dataset
     X (rows are datapoints) assuming they come from a
@@ -56,25 +56,25 @@ def t_generate(mu, S, dof=4, n=1):
     '''generate random variables of multivariate t distribution
     Parameters
     ----------
-    m : array_like
+    mu : array_like
         mean of random variable, length determines dimension of random variable
     S : array_like
         square array of covariance  matrix
     d0f : int or float
         degrees of freedom
     n : int
-        number of observations, return random array will be (n, len(m))
+        number of observations, return random array will be (n, len(mu))
     Returns
     -------
-    rvs : ndarray, (n, len(m))
+    rvs : ndarray, (n, len(mu))
         each row is an independent draw of a multivariate t distributed
         random variable
     '''
-    m = np.asarray(m)
-    d = len(m)
+    mu = np.asarray(mu)
+    d = len(mu)
     if dof == np.inf:
         x = 1.
     else:
         x = np.random.chisquare(dof, n)/dof
     z = np.random.multivariate_normal(np.zeros(d),S,(n,))
-    return m + z/np.sqrt(x)[:,None]
+    return mu + z/np.sqrt(x)[:,None]
