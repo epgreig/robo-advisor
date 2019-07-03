@@ -1,5 +1,5 @@
 
-from instrument import Instrument, Option
+from instrument import Instrument, Option, Equity
 from environment import Environment
 import numpy as np
 from copy import copy, deepcopy
@@ -38,30 +38,46 @@ class Portfolio:
             self.pf_units[self.get_cash('USD')] += self.pf_units[opt] * opt_val
             del self.pf_units[opt]
 
-    def buy_options(self, env: Environment, option_spec_list, pos_array, ttm=2):
+    def buy_options(self, env: Environment, option_spec_list, pos_array, ttm=2, pos_array_type='Units'):
 
         for i, spec in enumerate(option_spec_list):
             opt = Option(T=env.date + MonthEnd(ttm), **spec)
-            self.pf_units[opt] = pos_array[i]
             opt_val = opt.value(env)
+            if pos_array_type == 'Units':
+                pos = pos_array[i]
+            elif pos_array_type == 'Dollars':
+                pos = pos_array[i]/opt_val
+            else:
+                raise ValueError('pos_array_type has to be "Dollars" or "Units')
+            self.pf_units[opt] = pos
             self.pf_units[self.get_cash('USD')] -= self.pf_units[opt] * opt_val
 
     def rebalance(self, env: Environment, pos_dict: dict):
+        # pos_dict is name: n_units format
         for asset in self.pf_units.keys():
             if asset.type == 'EQ':
                 pos_change = pos_dict[asset.name] - self.pf_units[asset]
                 gain = pos_change * asset.value(env)
-                self.pf_units[self.get_cash('USD')] += gain
+                self.pf_units[self.get_cash('USD')] -= gain
                 self.pf_units[asset] = pos_dict[asset.name]
 
     @staticmethod
     def weights_to_pos(w_dict: dict, env: Environment, total_dollar_value):
         pos_dict = {}
-        for key, val in w_dict.items():
-            pos_dict[key] = total_dollar_value*val/env.prices[key]
+        for key, w in w_dict.items():
+            pos_dict[key] = total_dollar_value*w/env.prices[key]
         return pos_dict
 
-    def calc_value(self, env: Environment):
+    @staticmethod
+    def etf_dict_from_names(pos_dict):
+        # used just to initialize the asset objects for the portfolio
+        etf_dict = {}
+        for k, v in pos_dict.items():
+            etf = Equity(k, 'USD')
+            etf_dict[etf] = v
+        return etf_dict
+
+    def calc_value(self, env: Environment, ccy='USD'):
         # :param env: an Environment containing market prices
         # calculates a dictionary of Instrument -> dollar value in portfolio
         # returns the total dollar value of the portfolio
@@ -72,8 +88,8 @@ class Portfolio:
             self.pf_dollars[instr] = instr_pf_dollars
 
         self.pf_total_value = sum(self.pf_dollars.values())
-        
-        return self.pf_total_value
+
+        return self.pf_total_value*env.fx[ccy]
 
     def calc_realized_return(self, num_months, env: Environment):
         # Realized return over past [num_months] investment periods
