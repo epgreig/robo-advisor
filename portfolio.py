@@ -26,11 +26,33 @@ class Portfolio:
                 opt_list.append(asset)
         return opt_list
 
+    def get_options_value(self, env: Environment):
+        opt_list = self.get_options()
+        total_val = 0
+        for opt in opt_list:
+            opt_val = opt.value(env)
+            total_val += self.pf_units[opt] * opt_val
+        return total_val
+
     def get_asset(self, name):
         for asset in self.pf_units.keys():
             if asset.name == name:
                 return asset
         return None
+
+    def get_eq_value(self, env: Environment):
+        total_val = 0
+        for asset in self.pf_units.keys():
+            if asset.type == 'EQ':
+                total_val += env.prices[asset.name]*self.pf_units[asset]
+        return total_val
+
+    def get_names_value(self, env: Environment, asset_names_list):
+        total_val = 0
+        for asset in self.pf_units.keys():
+            if asset.name in asset_names_list:
+                total_val += env.prices[asset.name] * self.pf_units[asset]
+        return total_val
 
     def sell_options(self, env: Environment):
         opt_list = self.get_options()
