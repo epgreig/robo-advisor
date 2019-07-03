@@ -2,6 +2,7 @@
 from instrument import Instrument, Option, Equity
 from environment import Environment
 import numpy as np
+import pandas as pd
 from copy import copy, deepcopy
 from pandas.tseries.offsets import MonthEnd
 
@@ -33,13 +34,18 @@ class Portfolio:
 
     def sell_options(self, env: Environment):
         opt_list = self.get_options()
+        total_fee = 0
         for opt in opt_list:
             opt_val = opt.value(env)
-            self.pf_units[self.get_cash('USD')] += self.pf_units[opt] * opt_val
+            gain = self.pf_units[opt] * opt_val
+            fee = abs(self.pf_units[opt]) * 0.01 + 9.95
+            self.pf_units[self.get_cash('USD')] += gain - fee
             del self.pf_units[opt]
+            total_fee += fee
+        return total_fee
 
     def buy_options(self, env: Environment, option_spec_list, pos_array, ttm=2, pos_array_type='Units'):
-
+        total_fee = 0
         for i, spec in enumerate(option_spec_list):
             opt = Option(T=env.date + MonthEnd(ttm), **spec)
             opt_val = opt.value(env)
@@ -50,16 +56,37 @@ class Portfolio:
             else:
                 raise ValueError('pos_array_type has to be "Dollars" or "Units')
             self.pf_units[opt] = pos
-            self.pf_units[self.get_cash('USD')] -= self.pf_units[opt] * opt_val
+            cost = pos * opt_val
+            fee = 9.95 + abs(pos) * 0.01
+            cost += fee
+            self.pf_units[self.get_cash('USD')] -= cost
+            total_fee += fee
+        return total_fee
 
-    def rebalance(self, env: Environment, pos_dict: dict):
+    def rebalance(self, env: Environment, pos_dict: dict, exps: pd.Series, time_past=1/12):
         # pos_dict is name: n_units format
+        total_fees = 0
+        total_exps = 0
         for asset in self.pf_units.keys():
             if asset.type == 'EQ':
                 pos_change = pos_dict[asset.name] - self.pf_units[asset]
-                gain = pos_change * asset.value(env)
-                self.pf_units[self.get_cash('USD')] -= gain
+                etf_exps = exps[asset.name]*time_past*self.pf_units[asset]*asset.value(env)
+                cost = pos_change * asset.value(env) + etf_exps
+                if pos_change < 0:
+                    fee = 0.01*abs(pos_change)
+                    if fee < 4.95:
+                        fee = 4.95
+                    elif fee > 9.95:
+                        fee = 9.95
+                else:
+                    fee = 0
+
+                cost += fee
+                self.pf_units[self.get_cash('USD')] -= cost
                 self.pf_units[asset] = pos_dict[asset.name]
+                total_fees += fee
+                total_exps += etf_exps
+        return total_fees, total_exps
 
     @staticmethod
     def weights_to_pos(w_dict: dict, env: Environment, total_dollar_value):

@@ -29,7 +29,7 @@ class RiskParity:
         
         non_neg_constr = {'type':'ineq', 'fun':lambda x: np.dot(np.identity(N), x), 'jac':lambda x: np.identity(N)}
         y = optimize.minimize(f, y0, jac=grad_f, constraints=non_neg_constr, tol=1e-7, options={'maxiter':500})
-        print((y.nit, y.message))
+        # print((y.nit, y.message))
         wts = y.x/sum(y.x)
         self.weights_vector = wts
         self.weights_dict = {self.etfs[i]:wts[i] for i in range(N)}
