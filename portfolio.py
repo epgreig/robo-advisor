@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from copy import copy, deepcopy
 from pandas.tseries.offsets import MonthEnd
+from historical import ShockMap, Distribution, HistoricalData
 
 class Portfolio:
     def __init__(self, pf):
@@ -12,6 +13,8 @@ class Portfolio:
         self.pf_units = pf
         self.pf_dollars = {}
         self.pf_total_value = None
+        self.has_emp_dist = False
+    
 
     def get_cash(self, ccy):
         for asset in self.pf_units.keys():
@@ -118,6 +121,23 @@ class Portfolio:
 
         return self.pf_total_value*env.fx[ccy]
 
+    def get_forward_pnl(self, env: Environment, hist_data:HistoricalData , count=1):
+        sm = ShockMap(hist_data, env.date)
+        dist = Distribution(hist_data, env.date, method = "normal")
+        factor_shocks = dist.generate_shock(count)
+        simulated_price_shock = pd.DataFrame()
+        sim_port_values = []
+        for i in range(count):
+            simulated_price_shock[i] = sm.map_factors(factor_shocks.iloc[i])
+            env_sim = env.simulate(simulated_price_shock[i])
+            sim_port_value = self.calc_value(env_sim)
+            sim_port_values.append(sim_port_value)
+        
+        curr_port_value = self.calc_value(env)
+        
+        self.emp_dist = np.subtract(sim_port_values, curr_port_value)
+        self.has_emp_dist = True
+    
     def calc_realized_return(self, num_months, env: Environment):
         # Realized return over past [num_months] investment periods
         pass
@@ -144,12 +164,27 @@ class Portfolio:
         vol = self.calc_exp_vol(num_months, env)
         return vol**2.
 
-    def calc_var(self, num_months, env: Environment):
+    def calc_var(self, env=None, hist=None):
         # VaR for [num_months] forward
-        pass
+        if (not self.has_emp_dist):
+            if (env==None) or (hist==None):
+                raise ValueError("need both env and hist")
+            else:
+                self.get_forward_pnl(env, hist)
+        ### VaR code
+        
+        return -np.percentile(self.emp_dist, 5)
 
-    def calc_ES(self, num_months, env: Environment):
-        # ES for [num_months] forward
+    def calc_es(self, env=None, hist=None):
+        if (not self.has_emp_dist):
+            if (env==None) or (hist==None):
+                raise ValueError("need both env and hist")
+            else:
+                self.get_forward_pnl(env, hist)
+        
+        var = self.calc_var()
+        return np.mean(self.emp_dist[self.emp_dist <= -var])
+        
         pass
 
     def calc_cov_matrix(self, env: Environment):
