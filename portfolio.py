@@ -37,6 +37,45 @@ class Portfolio:
             total_val += self.pf_units[opt] * opt_val
         return total_val
 
+    def get_pnl_attr(self, env_before: Environment, env_now: Environment):
+        delta_attr = 0
+        vega_attr = 0
+        theta_attr = 0
+        rho_attr = 0
+
+        opt_list = self.get_options()
+        for opt in opt_list:
+
+            # attr wrt env_before:
+            opt_greeks = opt.get_greeks(env_before)
+            dS = env_now.prices[opt.ul] - env_before.prices[opt.ul]
+            delta_attr += (opt_greeks['delta']*dS + 0.5*opt_greeks['gamma']*(dS**2))*self.pf_units[opt]
+
+            dvol = env_now.surfaces[opt.ul].get_iv(1, env_now.prices[opt.ul] / opt.K) - \
+                   env_before.surfaces[opt.ul].get_iv(2, env_before.prices[opt.ul] / opt.K)
+
+            vega_attr += opt_greeks['vega']*dvol*self.pf_units[opt]
+            dttm = 1/12
+            theta_attr += opt_greeks['theta']*dttm*self.pf_units[opt]
+            dr = env_now.curves[opt.ccy].get_rate(2) - env_before.curves[opt.ccy].get_rate(2)
+            rho_attr += opt_greeks['rho']*dr*self.pf_units[opt]
+
+            # attr wrt env_now:
+            # opt_greeks = opt.get_greeks(env_now)
+            # dS = env_now.prices[opt.ul] - env_before.prices[opt.ul]
+            # delta_attr += (opt_greeks['delta'] * dS + 0.5 * opt_greeks['gamma'] * (dS ** 2))*self.pf_units[opt]
+            # dvol = env_now.surfaces[opt.ul].get_iv(1, env_before.prices[opt.ul] / opt.K) - \
+            #        env_before.surfaces[opt.ul].get_iv(1, env_before.prices[opt.ul] / opt.K)
+            # vega_attr += opt_greeks['vega'] * dvol*self.pf_units[opt]
+            # dttm = 1 / 12
+            # theta_attr += opt_greeks['theta'] * dttm*self.pf_units[opt]
+            # dr = env_now.curves[opt.ccy].get_rate(1) - env_before.curves[opt.ccy].get_rate(1)
+            # rho_attr += opt_greeks['rho'] * dr*self.pf_units[opt]
+
+
+        attribs = {"delta": delta_attr, "vega": vega_attr, "theta": theta_attr, 'rho': rho_attr}
+        return attribs
+
     def get_asset(self, name):
         for asset in self.pf_units.keys():
             if asset.name == name:
@@ -188,7 +227,18 @@ class Portfolio:
         
         self.emp_dist = np.subtract(sim_port_values, curr_port_value)
         self.has_emp_dist = True
-    
+
+
+    def calc_opt_greeks(self, env: Environment):
+        opt_list = self.get_options()
+        greeks = {"delta": 0, "gamma": 0, "vega": 0, "theta": 0}
+        for opt in opt_list:
+            opt_greeks = opt.get_greeks(env)
+            for greek in greeks.keys():
+                greeks[greek] += self.pf_units[opt]*opt_greeks[greek]
+        return greeks
+
+
     def calc_realized_return(self, num_months, env: Environment):
         # Realized return over past [num_months] investment periods
         pass

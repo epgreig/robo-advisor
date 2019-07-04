@@ -90,7 +90,6 @@ class Option(Instrument):
 
         if self.T < env.date:
             raise ValueError("Environment date is after option maturity")
-
         ttm = (self.T - env.date).days / 365
 
         S = env.prices[self.ul]
@@ -113,6 +112,33 @@ class Option(Instrument):
 
         return Option.bs_price(S, self.K, ttm, vol, int_rate, div_yield, self.is_call)
 
+    def get_greeks(self, env: Environment):
+        if self.T < env.date:
+            raise ValueError("Environment date is after option maturity")
+        ttm = (self.T - env.date).days / 365
+
+        S = env.prices[self.ul]
+        moneyness = S / self.K
+
+        if abs(ttm-1/12) < 1/36:
+            tenor = 1
+        elif abs(ttm-2/12) < 1/36:
+            tenor = 2
+        else:
+            raise ValueError("Time to maturity is not 1 or 2 months")
+
+        vol = env.surfaces[self.ul].get_iv(tenor, moneyness)
+        int_rate = env.curves[self.ccy].get_rate(tenor)
+        div_yield = env.divs[self.ul]
+
+        delta = Option.bs_delta(S, self.K, ttm, vol, int_rate, div_yield, self.is_call)
+        gamma = Option.bs_gamma(S, self.K, ttm, vol, int_rate, div_yield)
+        vega = Option.bs_vega(S, self.K, ttm, vol, int_rate, div_yield)
+        theta = Option.bs_theta(S, self.K, ttm, vol, int_rate, div_yield, self.is_call)
+        rho = Option.bs_rho(S, self.K, ttm, vol, int_rate, div_yield)
+        greeks = {"delta": delta, "gamma": gamma, "vega": vega, "theta": theta, 'rho': rho}
+        return greeks
+
     @staticmethod
     def bs_price(S, K, ttm, vol, int_rate, div_yield, is_call):
 
@@ -133,10 +159,38 @@ class Option(Instrument):
             return -np.exp(-div_yield*ttm) * norm.cdf(-d1)
 
     @staticmethod
+    def bs_gamma(S, K, ttm, vol, int_rate, div_yield):
+        d1 = (np.log(S / K) + (int_rate - div_yield + 0.5 * vol ** 2) * ttm) / (vol * np.sqrt(ttm))
+        gamma = np.exp(-div_yield * ttm) * norm.pdf(d1) / (S * vol * np.sqrt(ttm))
+        return gamma
+
+    @staticmethod
     def bs_vega(S, K, ttm, vol, int_rate, div_yield):
         d1 = (np.log(S / K) + (int_rate - div_yield + 0.5 * vol ** 2) * ttm) / (vol * np.sqrt(ttm))
         vega = S * np.exp(-div_yield * ttm) * norm.pdf(d1) * np.sqrt(ttm)
         return vega
+
+    @staticmethod
+    def bs_theta(S, K, ttm, vol, int_rate, div_yield, is_call):
+        d1 = (np.log(S/K) + (int_rate - div_yield + 0.5 * vol ** 2) * ttm) / (vol * np.sqrt(ttm))
+        d2 = d1 - vol * np.sqrt(ttm)
+        if is_call:
+            term1 = -np.exp(-div_yield * ttm)*S*norm.pdf(d1)*vol/(2*np.sqrt(ttm))
+            term2 = -int_rate*K*np.exp(-int_rate * ttm)*norm.cdf(d2)
+            term3 = div_yield*S*np.exp(-div_yield * ttm)*norm.cdf(d1)
+            return term1+term2+term3
+        else:
+            term1 = -np.exp(-div_yield * ttm) * S * norm.pdf(d1) * vol / (2 * np.sqrt(ttm))
+            term2 = int_rate * K * np.exp(-int_rate * ttm) * norm.cdf(-d2)
+            term3 = -div_yield * S * np.exp(-div_yield * ttm) * norm.cdf(-d1)
+            return term1 + term2 + term3
+
+    @staticmethod
+    def bs_rho(S, K, ttm, vol, int_rate, div_yield):
+        d1 = (np.log(S / K) + (int_rate - div_yield + 0.5 * vol ** 2) * ttm) / (vol * np.sqrt(ttm))
+        d2 = d1 - vol * np.sqrt(ttm)
+        rho = K * ttm * np.exp(-int_rate * ttm) * norm.cdf(d2)
+        return rho
 
     @staticmethod
     def bs_impvol(S, K, ttm, mkt_price, int_rate, div_yield, is_call, n_iters=5000, tol=1e-2):
