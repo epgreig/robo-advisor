@@ -57,21 +57,8 @@ class Portfolio:
             vega_attr += opt_greeks['vega']*dvol*self.pf_units[opt]
             dttm = 1/12
             theta_attr += opt_greeks['theta']*dttm*self.pf_units[opt]
-            dr = env_now.curves[opt.ccy].get_rate(2) - env_before.curves[opt.ccy].get_rate(2)
+            dr = env_now.curves[opt.ccy].get_rate(1) - env_before.curves[opt.ccy].get_rate(2)
             rho_attr += opt_greeks['rho']*dr*self.pf_units[opt]
-
-            # attr wrt env_now:
-            # opt_greeks = opt.get_greeks(env_now)
-            # dS = env_now.prices[opt.ul] - env_before.prices[opt.ul]
-            # delta_attr += (opt_greeks['delta'] * dS + 0.5 * opt_greeks['gamma'] * (dS ** 2))*self.pf_units[opt]
-            # dvol = env_now.surfaces[opt.ul].get_iv(1, env_before.prices[opt.ul] / opt.K) - \
-            #        env_before.surfaces[opt.ul].get_iv(1, env_before.prices[opt.ul] / opt.K)
-            # vega_attr += opt_greeks['vega'] * dvol*self.pf_units[opt]
-            # dttm = 1 / 12
-            # theta_attr += opt_greeks['theta'] * dttm*self.pf_units[opt]
-            # dr = env_now.curves[opt.ccy].get_rate(1) - env_before.curves[opt.ccy].get_rate(1)
-            # rho_attr += opt_greeks['rho'] * dr*self.pf_units[opt]
-
 
         attribs = {"delta": delta_attr, "vega": vega_attr, "theta": theta_attr, 'rho': rho_attr}
         return attribs
