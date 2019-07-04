@@ -2,10 +2,18 @@
 import pandas as pd
 import numpy as np
 
-def max_drawdown(perf_df):
+
+def max_drawdown(perf_df, asset_class=""):
     # :perf_df: pandas DataFrame of performance (like simulation_test notebook)
-    monthly_ret = perf_df['Return']
-    monthly_log_ret = pd.DataFrame({'Log_Return':np.log(1+perf_df['Return'])})
+
+    if asset_class is "":
+        monthly_ret = perf_df['Return']
+    elif asset_class in ['EQ', 'FI', 'EM', 'RE']:
+        monthly_ret = perf_df[asset_class + ' Return']
+    else:
+        raise SyntaxError()
+
+    monthly_log_ret = pd.DataFrame({'Log_Return':np.log(1+monthly_ret)})
     monthly_log_ret['Time_Weighted_Return'] = monthly_log_ret.cumsum()
     monthly_log_ret['Time_Weighted_Return'].iloc[0] = 0
     monthly_log_ret['Portfolio_Relative_Value'] = np.exp(monthly_log_ret['Time_Weighted_Return'])
