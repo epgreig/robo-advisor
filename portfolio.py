@@ -245,7 +245,7 @@ class Portfolio:
 
     def calc_opt_greeks(self, env: Environment):
         opt_list = self.get_options()
-        greeks = {"delta": 0, "gamma": 0, "vega": 0, "theta": 0}
+        greeks = {"delta": 0, "gamma": 0, "vega": 0, "theta": 0, "rho": 0}
         for opt in opt_list:
             opt_greeks = opt.get_greeks(env)
             for greek in greeks.keys():
