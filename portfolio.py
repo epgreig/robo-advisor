@@ -203,17 +203,31 @@ class Portfolio:
         dist = Distribution(hist_data, env.date, method = "normal")
         factor_shocks = dist.generate_shock(count)
         simulated_price_shock = pd.DataFrame()
+        shock_port_values_indiv = pd.DataFrame()
         sim_port_values = []
         for i in range(count):
             simulated_price_shock[i] = sm.map_factors(factor_shocks.iloc[i])
             env_sim = env.simulate(simulated_price_shock[i])
             sim_port_value = self.calc_value(env_sim)
+            shock_port_values_indiv[i] = self.pf_dollars.values()
             sim_port_values.append(sim_port_value)
         
         curr_port_value = self.calc_value(env)
         
         self.emp_dist = np.subtract(sim_port_values, curr_port_value)
         self.has_emp_dist = True
+
+
+        self.emp_price_shocks = simulated_price_shock
+        
+        names = []
+        for instru in list(self.pf_dollars.keys()):
+            names.append(instru.name)
+        shock_port_values_indiv['Names'] = names
+        shock_port_values_indiv.set_index('Names', inplace = True)
+        
+        self.emp_port_indiv = shock_port_values_indiv
+        
 
 
     def calc_opt_greeks(self, env: Environment):
@@ -224,6 +238,7 @@ class Portfolio:
             for greek in greeks.keys():
                 greeks[greek] += self.pf_units[opt]*opt_greeks[greek]
         return greeks
+
 
 
     def calc_realized_return(self, num_months, env: Environment):
@@ -258,7 +273,7 @@ class Portfolio:
             if (env==None) or (hist==None):
                 raise ValueError("need both env and hist")
             else:
-                self.get_forward_pnl(env, hist)
+                self.get_forward_pnl(env, hist, count = 1000)
         ### VaR code
         
         return -np.percentile(self.emp_dist, 5)
@@ -268,20 +283,71 @@ class Portfolio:
             if (env==None) or (hist==None):
                 raise ValueError("need both env and hist")
             else:
-                self.get_forward_pnl(env, hist)
+                self.get_forward_pnl(env, hist, count = 1000)
         
         var = self.calc_var()
         return -np.mean(self.emp_dist[self.emp_dist <= -var])
         
         pass
 
-    def calc_cov_matrix(self, env: Environment):
+    def calc_cov_matrix(self, env=None, hist=None):
         # Covariance Matrix for the ETFs
-        pass
+        #simulated covariance matrix
+        
+        if (not self.has_emp_dist):
+            if (env==None) or (hist==None):
+                raise ValueError("need both env and hist")
+            else:
+                self.get_forward_pnl(env, hist, count = 1000)        
+        
+        sim_returns = self.emp_price_shocks
+        sim_returns = sim_returns[~sim_returns.index.str.contains('IV')]
+        cov_sim = sim_returns.T.cov()
+        
+        return cov_sim
 
-    def calc_risk_contribs(self, env: Environment):
+    def calc_risk_contribs(self, env = Environment, hist=None):
         # Risk conribution of each ETF
-        pass
+        # returns a dataframe of component VaR which adds up to the parametric VaR obtained through simulation
+        if (not self.has_emp_dist):
+            if (env==None) or (hist==None):
+                raise ValueError("need both env and hist")
+            else:
+                self.get_forward_pnl(env, hist, count = 1000)
+        
+        #calculate simulation covariance matrix
+        Q = self.calc_cov_matrix()
+        #get individual sigmas
+        #sigmas = np.sqrt(np.diag(Q))
+        #rerun calc value and decompose original portfolio
+        curr_val = self.calc_value(env)
+        init_exp_prelim = list(self.pf_dollars.values())
+        #exclude options
+        init_exp_prelim = init_exp_prelim[0:27]
+        
+        names = []
+        for instru in list(self.pf_dollars.keys()):
+            names.append(instru.name)
+
+        names = names[0:27]
+        
+        init_exp_prelim_2 = pd.DataFrame(data=init_exp_prelim, index = names) 
+        init_exp = init_exp_prelim_2.reindex(Q.columns)
+        init_exp = np.array(init_exp)
+        
+        
+        #portfolio sigma
+        sd = np.sqrt(np.dot(np.dot(Q, init_exp).T, init_exp))
+        #parametric_var = 1.96*sd
+        #var_i = np.multiply(1.96*sigmas, init_exp)
+        #undiversified_var = sum(var_i)
+        #total_exp = sum(init_exp)
+        #beta = total_exp*(np.dot(Q, init_exp))/(sd**2)
+        dvar = 1.96*(np.dot(Q, init_exp))/sd
+        comp_var = pd.DataFrame(np.multiply(dvar, init_exp), index = Q.columns, columns = ['Component VaR'])                        
+        return comp_var
+        
+        
 
     def calc_betas(self, environment):
         # Betas of portfolio to each risk factor
