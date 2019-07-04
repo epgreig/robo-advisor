@@ -71,6 +71,36 @@ class Distribution:
         cond_bin_lower = factor_sim_shocks[f_name] > lower_limit
         cond_shocks = factor_sim_shocks[cond_bin_upper & cond_bin_lower]
         return cond_shocks.mean()
+    
+    
+    def generate_cond_shock_cf(self, f_name: str, condition = 0):
+        shocks = self.shock_hist
+        cols = self.shock_hist.columns.tolist()
+        cols_old = self.shock_hist.columns.tolist()
+        a = len(cols)
+        to_condition_on = cols.index(f_name)
+        cols[to_condition_on], cols[a-1] = cols[a-1], cols[to_condition_on]
+        shocks = shocks[cols]
+        
+        Q = shocks.cov()
+        Q_mat = np.matrix(Q.values)
+        #Q_tl = Q_mat[:-1, :-1]
+        Q_tr = Q_mat[-1, :-1]
+        #Q_ll = Q_mat[:-1, -1]
+        Q_lr = Q_mat[-1, -1]
+        
+        #Q_cond = Q_tl - Q_ll*Q_tr*(1/Q_lr)
+        mu = shocks.mean().values
+        mu_1 = mu[:-1]
+        mu_2 = mu[-1]
+        
+        mu_cond = mu_1 + Q_tr*(1/Q_lr)*(condition - mu_2)
+        mu_cond = mu_cond.A1
+        mu_cond_with_cond = np.append(mu_cond,condition)
+        mu_cond_final = pd.Series(mu_cond_with_cond, index = cols)        
+        mu_cond_final = mu_cond_final.reindex(cols_old)
+        
+        return mu_cond_final
 
 class ShockMap:
     def __init__(self, hist: HistoricalData, date: Timestamp):
