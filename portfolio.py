@@ -245,9 +245,18 @@ class Portfolio:
         # Realized return over past [num_months] investment periods
         pass
 
-    def calc_exp_return(self, num_months, env: Environment):
+    def calc_exp_return(self, env=None, hist=None):
         # Expected return over next [num_months] investment periods
-        pass
+        if (not self.has_emp_dist):
+            if (env == None) or (hist == None):
+                raise ValueError("need both env and hist")
+            else:
+                self.get_forward_pnl(env, hist, count=1000)
+
+        sim_returns = self.emp_price_shocks
+        sim_returns = sim_returns[~sim_returns.index.str.contains('IV')]
+        mean_sim = sim_returns.T.mean()
+        return mean_sim
 
     def calc_realized_vol(self, num_months, env: Environment):
         # Realized volatility over past [num_months] investment periods
@@ -303,7 +312,7 @@ class Portfolio:
         sim_returns = self.emp_price_shocks
         sim_returns = sim_returns[~sim_returns.index.str.contains('IV')]
         cov_sim = sim_returns.T.cov()
-        
+
         return cov_sim
 
     def calc_risk_contribs(self, env = Environment, hist=None):
@@ -317,6 +326,7 @@ class Portfolio:
         
         #calculate simulation covariance matrix
         Q = self.calc_cov_matrix()
+        mu = self.calc_exp_return()
         #get individual sigmas
         #sigmas = np.sqrt(np.diag(Q))
         #rerun calc value and decompose original portfolio
@@ -334,8 +344,7 @@ class Portfolio:
         init_exp_prelim_2 = pd.DataFrame(data=init_exp_prelim, index = names) 
         init_exp = init_exp_prelim_2.reindex(Q.columns)
         init_exp = np.array(init_exp)
-        
-        
+
         #portfolio sigma
         sd = np.sqrt(np.dot(np.dot(Q, init_exp).T, init_exp))
         #parametric_var = 1.96*sd
@@ -343,7 +352,8 @@ class Portfolio:
         #undiversified_var = sum(var_i)
         #total_exp = sum(init_exp)
         #beta = total_exp*(np.dot(Q, init_exp))/(sd**2)
-        dvar = 1.96*(np.dot(Q, init_exp))/sd
+        #  - mu.values.reshape(-1,1)
+        dvar = 1.96*(np.dot(Q, init_exp))/sd - mu.values.reshape(-1,1)
         comp_var = pd.DataFrame(np.multiply(dvar, init_exp), index = Q.columns, columns = ['Component VaR'])                        
         return comp_var
         

@@ -5,6 +5,8 @@ from student_t import t_fit, t_generate
 from pandas._libs.tslibs.timestamps import Timestamp
 from sklearn.linear_model import LinearRegression, Lasso, Ridge, LassoCV, RidgeCV
 
+from time import time
+
 class HistoricalData:
     def __init__(self, envdata: pd.DataFrame, features: pd.DataFrame, targets: pd.DataFrame):
         self.envdata = envdata
@@ -56,7 +58,7 @@ class Distribution:
             return factor_shock
 
         elif self.method == 'normal':
-            factor_shock = np.random.multivariate_normal(self.mean, self.cov, size=count)
+            factor_shock = np.random.multivariate_normal(self.mean.values, self.cov.values, size=count)
             return pd.DataFrame(factor_shock, columns=self.shock_hist.columns)
         
         elif self.method == 'student':
@@ -71,6 +73,36 @@ class Distribution:
         cond_bin_lower = factor_sim_shocks[f_name] > lower_limit
         cond_shocks = factor_sim_shocks[cond_bin_upper & cond_bin_lower]
         return cond_shocks.mean()
+    
+    
+    def generate_cond_shock_cf(self, f_name: str, condition = 0):
+        shocks = self.shock_hist
+        cols = self.shock_hist.columns.tolist()
+        cols_old = self.shock_hist.columns.tolist()
+        a = len(cols)
+        to_condition_on = cols.index(f_name)
+        cols[to_condition_on], cols[a-1] = cols[a-1], cols[to_condition_on]
+        shocks = shocks[cols]
+        
+        Q = shocks.cov()
+        Q_mat = np.matrix(Q.values)
+        #Q_tl = Q_mat[:-1, :-1]
+        Q_tr = Q_mat[-1, :-1]
+        #Q_ll = Q_mat[:-1, -1]
+        Q_lr = Q_mat[-1, -1]
+        
+        #Q_cond = Q_tl - Q_ll*Q_tr*(1/Q_lr)
+        mu = shocks.mean().values
+        mu_1 = mu[:-1]
+        mu_2 = mu[-1]
+        
+        mu_cond = mu_1 + Q_tr*(1/Q_lr)*(condition - mu_2)
+        mu_cond = mu_cond.A1
+        mu_cond_with_cond = np.append(mu_cond,condition)
+        mu_cond_final = pd.Series(mu_cond_with_cond, index = cols)        
+        mu_cond_final = mu_cond_final.reindex(cols_old)
+        
+        return mu_cond_final
 
 class ShockMap:
     def __init__(self, hist: HistoricalData, date: Timestamp):
@@ -80,6 +112,7 @@ class ShockMap:
         self.rates = hist.envdata[hist.envdata.index <= date]['MACRO'][rate_names]/100/12
         self.date = date
         self.coefs = pd.DataFrame()
+        self.resid_variance = pd.Series()
         self.calibrated = False
 
     def calibrate(self):
@@ -90,6 +123,7 @@ class ShockMap:
             reg = LassoCV(fit_intercept=False, cv=len(y)//2, n_alphas=10)
             reg.fit(X,y)
             param_dict[col] = reg.coef_
+            self.resid_variance[col] = (y - reg.predict(X)).std()**2
         self.coefs = pd.DataFrame(param_dict, index=self.features_df.columns.droplevel())
 
     def map_factors(self, factor_shock: pd.Series):
@@ -97,14 +131,16 @@ class ShockMap:
             self.calibrate()
             self.calibrated = True
 
-        asset_shocks = {}
-
         feat_series = factor_shock.append(self.rates.loc[self.date])
-        for asset in self.coefs.columns:
-            asset_shocks[asset] = np.dot(self.coefs[asset].values,
-                                         feat_series[self.coefs.index].values)
 
-        return pd.Series(asset_shocks)
+        idx = self.coefs.index
+        asset_shocks = np.dot(feat_series[idx].values, self.coefs.values)
+
+        resid_cov = np.diag(self.resid_variance[self.coefs.columns].values)
+        resid_shocks = np.random.multivariate_normal(np.zeros(resid_cov.shape[0]), resid_cov)
+        out = pd.Series(asset_shocks+resid_shocks, index=self.coefs.columns)
+
+        return out
 
 class Shock:
 
