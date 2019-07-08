@@ -88,8 +88,6 @@ class Portfolio:
         total_fee = 0
         spread_cross_loss = 0
         for opt in opt_list:
-            gain = 0
-            fee = 0
             opt_mid = opt.value(env, ba_spread=0)
             opt_val = opt.value(env, ba_spread=-0.001*np.sign(self.pf_units[opt]))
             gain = self.pf_units[opt] * opt_mid
@@ -100,18 +98,16 @@ class Portfolio:
                 fee = 0
                 spread_cross = 0
 
-            self.pf_units[self.get_cash('USD')] += gain - fee - spread_cross
+            self.pf_units[self.get_cash('USD')] += (gain - fee - spread_cross)
             del self.pf_units[opt]
             total_fee += fee
             spread_cross_loss += spread_cross
-        return total_fee, spread_cross
+        return total_fee, spread_cross_loss
 
     def buy_options(self, env: Environment, option_spec_list, pos_array, moneyness_array, ttm=2, pos_array_type='Units'):
         total_fee = 0
         spread_cross_loss = 0
         for i, spec in enumerate(option_spec_list):
-            cost = 0
-            fee = 0
             opt = Option(T=env.date + MonthEnd(ttm), K=env.prices[spec['ul']]*moneyness_array[i], **spec)
             opt_mid = opt.value(env, ba_spread=0)
             opt_val = opt.value(env, ba_spread=0.001*np.sign(pos_array[i]))
@@ -122,13 +118,13 @@ class Portfolio:
             else:
                 raise ValueError('pos_array_type has to be "Dollars" or "Units')
             self.pf_units[opt] = pos
-            cost = pos * opt_val
+            cost = pos * opt_mid
             spread_cross = abs(pos * (opt_val-opt_mid))
             fee = 9.95 + abs(pos) * 0.01
 
             if abs(pos) < 1e-3:
                 fee = 0
-                spread_cross=0
+                spread_cross = 0
 
             cost += fee + spread_cross
             self.pf_units[self.get_cash('USD')] -= cost
