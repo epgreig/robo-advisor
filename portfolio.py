@@ -86,28 +86,35 @@ class Portfolio:
     def sell_options(self, env: Environment):
         opt_list = self.get_options()
         total_fee = 0
+        spread_cross_loss = 0
         for opt in opt_list:
             gain = 0
             fee = 0
-            opt_val = opt.value(env)
-            gain = self.pf_units[opt] * opt_val
+            opt_mid = opt.value(env, ba_spread=0)
+            opt_val = opt.value(env, ba_spread=-0.001*np.sign(self.pf_units[opt]))
+            gain = self.pf_units[opt] * opt_mid
             fee = abs(self.pf_units[opt]) * 0.01 + 9.95
-
+            spread_cross = abs(self.pf_units[opt] * (opt_val-opt_mid))
+            
             if abs(self.pf_units[opt]) < 1e-3:
                 fee = 0
+                spread_cross = 0
 
-            self.pf_units[self.get_cash('USD')] += gain - fee
+            self.pf_units[self.get_cash('USD')] += gain - fee - spread_cross
             del self.pf_units[opt]
             total_fee += fee
-        return total_fee
+            spread_cross_loss += spread_cross
+        return total_fee, spread_cross
 
     def buy_options(self, env: Environment, option_spec_list, pos_array, moneyness_array, ttm=2, pos_array_type='Units'):
         total_fee = 0
+        spread_cross_loss = 0
         for i, spec in enumerate(option_spec_list):
             cost = 0
             fee = 0
             opt = Option(T=env.date + MonthEnd(ttm), K=env.prices[spec['ul']]*moneyness_array[i], **spec)
-            opt_val = opt.value(env)
+            opt_mid = opt.value(env, ba_spread=0)
+            opt_val = opt.value(env, ba_spread=0.001*np.sign(pos_array[i]))
             if pos_array_type == 'Units':
                 pos = pos_array[i]
             elif pos_array_type == 'Dollars':
@@ -116,26 +123,31 @@ class Portfolio:
                 raise ValueError('pos_array_type has to be "Dollars" or "Units')
             self.pf_units[opt] = pos
             cost = pos * opt_val
+            spread_cross = abs(pos * (opt_val-opt_mid))
             fee = 9.95 + abs(pos) * 0.01
 
             if abs(pos) < 1e-3:
                 fee = 0
+                spread_cross=0
 
-            cost += fee
+            cost += fee + spread_cross
             self.pf_units[self.get_cash('USD')] -= cost
             total_fee += fee
-        return total_fee
+            spread_cross_loss += spread_cross
+        return total_fee, spread_cross_loss
 
     @staticmethod
     def get_opt_strategy_price(env: Environment, option_spec_list, pos_array, moneyness_array, ttm=2):
         total_cost = 0
         for i, spec in enumerate(option_spec_list):
             opt = Option(T=env.date + MonthEnd(ttm), K=env.prices[spec['ul']] * moneyness_array[i], **spec)
-            opt_val = opt.value(env)
+            opt_mid = opt.value(env, ba_spread=0)
+            opt_val = opt.value(env, ba_spread=0.001*np.sign(pos_array[i]))
             pos = pos_array[i]
             cost = pos * opt_val
             fee = abs(pos) * 0.01
-            cost += fee
+            spread_cross = abs(pos * (opt_val-opt_mid))
+            cost += fee + spread_cross
             total_cost += cost
             del opt
         return total_cost

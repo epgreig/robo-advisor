@@ -86,7 +86,7 @@ class Option(Instrument):
         self.T = T
         self.type = 'Option'
 
-    def value(self, env: Environment):
+    def value(self, env: Environment, ba_spread=0):
 
         if self.T < env.date:
             raise ValueError("Environment date is after option maturity")
@@ -106,7 +106,7 @@ class Option(Instrument):
                 return max(self.K - S, 0)
         else:
             raise ValueError("Time to maturity is not 1 or 2 months")
-        vol = env.surfaces[self.ul].get_iv(tenor, moneyness)
+        vol = env.surfaces[self.ul].get_iv(tenor, moneyness) + ba_spread
         int_rate = env.curves[self.ccy].get_rate(tenor)
         div_yield = env.divs[self.ul]
 
