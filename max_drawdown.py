@@ -7,7 +7,7 @@ def max_drawdown(perf_df, asset_class=""):
     # :perf_df: pandas DataFrame of performance (like simulation_test notebook)
 
     if asset_class is "":
-        monthly_ret = perf_df['Return']
+        monthly_ret = perf_df['Post-fee Return']
     elif asset_class in ['EQ', 'FI', 'EM', 'RE']:
         monthly_ret = perf_df[asset_class + ' Return']
     else:
