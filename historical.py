@@ -141,6 +141,23 @@ class ShockMap:
         out = pd.Series(asset_shocks+resid_shocks, index=self.coefs.columns)
 
         return out
+    
+    def map_factors_expected(self, factor_shock: pd.Series):
+        
+        if not self.calibrated:
+            self.calibrate()
+            self.calibrated = True
+
+        feat_series = factor_shock.append(self.rates.loc[self.date])
+
+        idx = self.coefs.index
+        asset_shocks = np.dot(feat_series[idx].values, self.coefs.values)
+
+        #resid_cov = np.diag(self.resid_variance[self.coefs.columns].values)
+        #resid_shocks = np.random.multivariate_normal(np.zeros(resid_cov.shape[0]), resid_cov)
+        out = pd.Series(asset_shocks, index=self.coefs.columns)        
+        
+        return out
 
 class Shock:
 
